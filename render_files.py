@@ -121,8 +121,8 @@ def prepare_install_config(config_dir, install_config):
 
     if not os.path.exists(install_config_path):
         logging.info("writing install config to file")
-        with open(os.path.join(config_dir, INSTALL_CONFIG), 'w+') as file_obj:
-            yaml.dump(install_config, file_obj)
+        with open(os.path.join(config_dir, INSTALL_CONFIG), 'w+') as yaml_file:
+            yaml_file.write(install_config)
 
 
 def set_pull_secret(config_dir):
