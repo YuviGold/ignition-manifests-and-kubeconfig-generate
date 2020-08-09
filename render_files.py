@@ -41,6 +41,22 @@ def upload_to_aws(s3_client, local_file, bucket, s3_file):
         return False
 
 
+def add_dhcp_allocation_file(ignition_file, dhcp_allocation_file):
+    try:
+        with open(ignition_file, "r") as file_obj:
+            data = json.load(file_obj)
+            storage_files = data['storage']['files']
+            entry = {"filesystem": "root",
+                     "path": "/etc/keepalived/unsupported-monitor.conf",
+                     "mode": 644,
+                     "contents": {"source": dhcp_allocation_file}}
+            data['storage']['files'] = storage_files + [entry]
+        with open(ignition_file, "w") as file_obj:
+            json.dump(data, file_obj)
+    except Exception as ex:
+        raise Exception('Failed to add DHCP allocation file to bootstrap ignition, exception: {}'.format(ex))
+
+
 def update_bmh_files(ignition_file, cluster_id, inventory_endpoint, token):
     try:
         if inventory_endpoint:
@@ -172,6 +188,7 @@ def main():
     install_config = os.environ.get("INSTALLER_CONFIG")
     cluster_id = os.environ.get("CLUSTER_ID")
     inventory_endpoint = os.environ.get("INVENTORY_ENDPOINT")
+    dhcp_allocation_file = os.environ.get("DHCP_ALLOCATION_FILE")
     s3_endpoint_url = os.environ.get("S3_ENDPOINT_URL", args.s3_endpoint_url)
     bucket = os.environ.get('S3_BUCKET', args.s3_bucket)
     aws_access_key_id = os.environ.get("aws_access_key_id", "accessKey1")
@@ -195,8 +212,14 @@ def main():
     # [TODO] - remove after fixing subsystem
     # create_services_config(work_dir, config_dir, openshift_release_image)
 
+    ignition_file = "%s/bootstrap.ign" % config_dir
+
     # update BMH configuration in boostrap ignition
-    update_bmh_files("%s/bootstrap.ign" % config_dir, cluster_id, inventory_endpoint, openshift_token(config_dir))
+    update_bmh_files(ignition_file, cluster_id, inventory_endpoint, openshift_token(config_dir))
+
+    if dhcp_allocation_file:
+        # Add dhcp allocation file if needed to ignition
+        add_dhcp_allocation_file(ignition_file, dhcp_allocation_file)
 
     if s3_endpoint_url:
         upload_to_s3(s3_endpoint_url, bucket, aws_access_key_id, aws_secret_access_key, config_dir, cluster_id)
